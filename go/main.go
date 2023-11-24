@@ -314,6 +314,7 @@ func (h *Handler) loginProcess(tx *sqlx.Tx, userID int64, requestAt int64) (*Use
 	}
 
 	// ログインボーナス処理
+	// ここのinsertもやばい
 	loginBonuses, err := h.obtainLoginBonus(tx, userID, requestAt)
 	if err != nil {
 		return nil, nil, nil, err
@@ -441,68 +442,97 @@ func (h *Handler) obtainPresent(tx *sqlx.Tx, userID int64, requestAt int64) ([]*
 		return nil, err
 	}
 
-	obtainPresents := make([]*UserPresent, 0)
+	presentAllIds := make([]int64, 0, len(normalPresents))
 	for _, np := range normalPresents {
-		received := new(UserPresentAllReceivedHistory)
-		query = "SELECT * FROM user_present_all_received_history WHERE user_id=? AND present_all_id=?"
-		err := tx.Get(received, query, userID, np.ID)
-		if err == nil {
-			// プレゼント配布済
-			continue
-		}
+		presentAllIds = append(presentAllIds, np.ID)
+	}
+
+	obtainPresents := make([]*UserPresent, 0)
+	receivedHistories := make([]*UserPresentAllReceivedHistory, 0)
+	query = "SELECT * FROM user_present_all_received_history WHERE user_id=? AND present_all_id IN (?)"
+	if err := tx.Select(&receivedHistories, query, userID, presentAllIds); err != nil {
 		if err != sql.ErrNoRows {
 			return nil, err
+		}
+	}
+
+	type HistoryAndNormalData struct {
+		History *UserPresentAllReceivedHistory
+		Normal  *PresentAllMaster
+	}
+
+	historiesAndNormalData := make([]*HistoryAndNormalData, 0, len(normalPresents))
+	for _, np := range normalPresents {
+		historiesAndNormalData = append(historiesAndNormalData, &HistoryAndNormalData{
+			History: nil,
+			Normal:  np,
+		})
+	}
+
+	for _, history := range receivedHistories {
+		for _, hn := range historiesAndNormalData {
+			if history.PresentAllID == hn.Normal.ID {
+				hn.History = history
+				break
+			}
+		}
+	}
+
+	var ups []*UserPresent
+	var newHistories []*UserPresentAllReceivedHistory
+
+	for _, hn := range historiesAndNormalData {
+		if hn.History == nil {
+			continue
 		}
 
 		pID, err := h.generateID()
 		if err != nil {
 			return nil, err
 		}
+
 		up := &UserPresent{
 			ID:             pID,
 			UserID:         userID,
 			SentAt:         requestAt,
-			ItemType:       np.ItemType,
-			ItemID:         np.ItemID,
-			Amount:         int(np.Amount),
-			PresentMessage: np.PresentMessage,
+			ItemType:       hn.Normal.ItemType,
+			ItemID:         hn.Normal.ItemID,
+			Amount:         int(hn.Normal.Amount),
+			PresentMessage: hn.Normal.PresentMessage,
 			CreatedAt:      requestAt,
 			UpdatedAt:      requestAt,
 		}
-		// bulk insert
-		query = "INSERT INTO user_presents(id, user_id, sent_at, item_type, item_id, amount, present_message, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
-		if _, err := tx.Exec(query, up.ID, up.UserID, up.SentAt, up.ItemType, up.ItemID, up.Amount, up.PresentMessage, up.CreatedAt, up.UpdatedAt); err != nil {
-			return nil, err
-		}
+		ups = append(ups, up)
 
 		phID, err := h.generateID()
 		if err != nil {
 			return nil, err
 		}
+
 		history := &UserPresentAllReceivedHistory{
 			ID:           phID,
 			UserID:       userID,
-			PresentAllID: np.ID,
+			PresentAllID: hn.Normal.ID,
 			ReceivedAt:   requestAt,
 			CreatedAt:    requestAt,
 			UpdatedAt:    requestAt,
 		}
-		// bulk insert
-		query = "INSERT INTO user_present_all_received_history(id, user_id, present_all_id, received_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
-		if _, err := tx.Exec(
-			query,
-			history.ID,
-			history.UserID,
-			history.PresentAllID,
-			history.ReceivedAt,
-			history.CreatedAt,
-			history.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
 
-		obtainPresents = append(obtainPresents, up)
+		newHistories = append(newHistories, history)
 	}
+
+	// bulk insert
+	query = "INSERT INTO user_presents(id, user_id, sent_at, item_type, item_id, amount, present_message, created_at, updated_at) VALUES (:id, :user_id, :sent_at, :item_type, :item_id, :amount, :present_message, :created_at, :updated_at)"
+	if _, err := tx.NamedExec(query, ups); err != nil {
+		return nil, err
+	}
+
+	query = "INSERT INTO user_present_all_received_history(id, user_id, present_all_id, received_at, created_at, updated_at) VALUES (:id, :user_id, :present_all_id, :received_at, :created_at, :updated_at)"
+	if _, err := tx.NamedExec(query, newHistories); err != nil {
+		return nil, err
+	}
+
+	obtainPresents = append(obtainPresents, ups...)
 
 	return obtainPresents, nil
 }
@@ -632,6 +662,11 @@ func initialize(c echo.Context) error {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
 
+	query := "USE `isucon`; CREATE INDEX `idx_user_id_present_history` ON `user_present_all_received_history` (`user_id`, `present_all_id`);"
+	if _, err := dbx.Exec(query); err != nil {
+		return errorResponse(c, http.StatusInternalServerError, err)
+	}
+
 	return successResponse(c, &InitializeResponse{
 		Language: "go",
 	})
@@ -713,7 +748,9 @@ func (h *Handler) createUser(c echo.Context) error {
 	}
 
 	initCards := make([]*UserCard, 0, 3)
-	// bulk insert
+
+	newCards := make([]*UserCard, 0, 3)
+
 	for i := 0; i < 3; i++ {
 		cID, err := h.generateID()
 		if err != nil {
@@ -729,12 +766,26 @@ func (h *Handler) createUser(c echo.Context) error {
 			CreatedAt:    requestAt,
 			UpdatedAt:    requestAt,
 		}
-		query = "INSERT INTO user_cards(id, user_id, card_id, amount_per_sec, level, total_exp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-		if _, err := tx.Exec(query, card.ID, card.UserID, card.CardID, card.AmountPerSec, card.Level, card.TotalExp, card.CreatedAt, card.UpdatedAt); err != nil {
-			return errorResponse(c, http.StatusInternalServerError, err)
-		}
-		initCards = append(initCards, card)
+
+		newCards = append(newCards, card)
 	}
+
+	// bulk insert
+	query = "INSERT INTO user_cards(id, user_id, card_id, amount_per_sec, level, total_exp, created_at, updated_at) VALUES (:id, :user_id, :card_id, :amount_per_sec, :level, :total_exp, :created_at, :updated_at)"
+	if _, err := tx.NamedExec(query, newCards); err != nil {
+		return errorResponse(c, http.StatusInternalServerError, err)
+	}
+
+	initCards = append(initCards, newCards...)
+
+	// bulk insert
+	// for i := 0; i < 3; i++ {
+	// 	query = "INSERT INTO user_cards(id, user_id, card_id, amount_per_sec, level, total_exp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+	// 	if _, err := tx.Exec(query, card.ID, card.UserID, card.CardID, card.AmountPerSec, card.Level, card.TotalExp, card.CreatedAt, card.UpdatedAt); err != nil {
+	// 		return errorResponse(c, http.StatusInternalServerError, err)
+	// 	}
+	// 	initCards = append(initCards, card)
+	// }
 
 	deckID, err := h.generateID()
 	if err != nil {
