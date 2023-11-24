@@ -469,6 +469,7 @@ func (h *Handler) obtainPresent(tx *sqlx.Tx, userID int64, requestAt int64) ([]*
 			CreatedAt:      requestAt,
 			UpdatedAt:      requestAt,
 		}
+		// bulk insert
 		query = "INSERT INTO user_presents(id, user_id, sent_at, item_type, item_id, amount, present_message, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
 		if _, err := tx.Exec(query, up.ID, up.UserID, up.SentAt, up.ItemType, up.ItemID, up.Amount, up.PresentMessage, up.CreatedAt, up.UpdatedAt); err != nil {
 			return nil, err
@@ -486,6 +487,7 @@ func (h *Handler) obtainPresent(tx *sqlx.Tx, userID int64, requestAt int64) ([]*
 			CreatedAt:    requestAt,
 			UpdatedAt:    requestAt,
 		}
+		// bulk insert
 		query = "INSERT INTO user_present_all_received_history(id, user_id, present_all_id, received_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
 		if _, err := tx.Exec(
 			query,
@@ -711,6 +713,7 @@ func (h *Handler) createUser(c echo.Context) error {
 	}
 
 	initCards := make([]*UserCard, 0, 3)
+	// bulk insert
 	for i := 0; i < 3; i++ {
 		cID, err := h.generateID()
 		if err != nil {

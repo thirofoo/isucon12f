@@ -2,16 +2,12 @@ matching_groups:
   - /user
   - /login
   - /user/[^\/]+/gacha/
-  - /user/[^\/]+/gacha/draw
-  - /user/[^\/]+/present
+  - /user/[^\/]+/gacha/draw/[^\/]+/[^\/]
+  - /user/[^\/]+/present/*
   - /user/[^\/]+/item
-  - /user/[^\/]+/card
+  - /user/[^\/]+/card/*
   - /user/[^\/]+/reward
   - /user/[^\/]+/home
-  - /admin/login
-  - /admin/logout
-  - /admin/master
-  - /admin/user/[^\/]
 sort: avg
 reverse: true
 metrics:
