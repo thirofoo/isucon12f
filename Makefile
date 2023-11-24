@@ -18,7 +18,7 @@ rotate-slow-log:
 
 .PHONY: alp
 alp:
-	alp ltsv --config ./alp/alp-config.yml
+	alp json --config ./alp/alp-config.yml
 
 .PHONY: pt
 pt:
