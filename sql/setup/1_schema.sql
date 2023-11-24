@@ -132,8 +132,9 @@ CREATE TABLE `user_present_all_received_history` (
   `updated_at`bigint NOT NULL,
   `deleted_at` bigint default NULL,
   PRIMARY KEY (`id`)
-  INDEX userid_presentid_idx (`user_id`, `present_all_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+CREATE INDEX `userid_presentid_idx` ON `user_present_all_received_history` (`user_id`, `present_all_id`);
 
 CREATE TABLE `user_presents` (
   `id` bigint NOT NULL,
@@ -147,8 +148,9 @@ CREATE TABLE `user_presents` (
   `updated_at`bigint NOT NULL,
   `deleted_at` bigint default NULL,
   PRIMARY KEY (`id`),
-  INDEX userid_idx (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+CREATE INDEX `userid_idx` ON `user_presents` (`user_id`);
 
 /* ガチャマスタ */
 
@@ -187,6 +189,8 @@ CREATE TABLE `user_items` (
   INDEX userid_item_id_idx (`user_id`, `item_id`),
   INDEX item_type (`item_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+CREATE INDEX `userid_itemid_idx` ON `user_items` (`user_id`, `item_id`);
 
 CREATE TABLE `user_cards` (
   `id` bigint NOT NULL,
