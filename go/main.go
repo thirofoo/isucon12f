@@ -314,6 +314,7 @@ func (h *Handler) loginProcess(tx *sqlx.Tx, userID int64, requestAt int64) (*Use
 	}
 
 	// ログインボーナス処理
+	// ここのinsertもやばい
 	loginBonuses, err := h.obtainLoginBonus(tx, userID, requestAt)
 	if err != nil {
 		return nil, nil, nil, err
@@ -629,6 +630,11 @@ func initialize(c echo.Context) error {
 	out, err := exec.Command("/bin/sh", "-c", SQLDirectory+"init.sh").CombinedOutput()
 	if err != nil {
 		c.Logger().Errorf("Failed to initialize %s: %v", string(out), err)
+		return errorResponse(c, http.StatusInternalServerError, err)
+	}
+
+	query := "USE `isucon`; CREATE INDEX `idx_user_id_present_all_id` ON `user_present_all_received_history` (`user_id`, `present_all_id`);"
+	if _, err := dbx.Exec(query); err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
 
