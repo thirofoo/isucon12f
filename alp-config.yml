@@ -1,0 +1,21 @@
+matching_groups:
+  - /api/isu/[^\/]+/icon
+  - /api/isu/[^\/]+/graph
+  - /api/isu/[^\/]+
+  - /api/condition/[^\/]
+  - /isu/[^\/]+/condition
+  - /isu/[^\/]+/graph
+  - /isu/[^\/]+
+  - /assets/.*
+sort: avg
+reverse: true
+metrics:
+  - count
+  - method
+  - uri
+  - min
+  - avg
+  - max
+  - sum
+  
+file: /var/log/nginx/access.ndjson
