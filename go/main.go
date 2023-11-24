@@ -641,15 +641,6 @@ func initialize(c echo.Context) error {
 	if _, err := dbx.Exec(query); err != nil {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
-	query = "USE `isucon`; CREATE INDEX `idx_user_id_cards` ON `user_cards` (`user_id`);"
-	if _, err := dbx.Exec(query); err != nil {
-		return errorResponse(c, http.StatusInternalServerError, err)
-	}
-	query = "USE `isucon`; CREATE INDEX `idx_user_id_devices` ON `user_devices` (`user_id`);"
-	if _, err := dbx.Exec(query); err != nil {
-		return errorResponse(c, http.StatusInternalServerError, err)
-	}
-
 
 	return successResponse(c, &InitializeResponse{
 		Language: "go",
