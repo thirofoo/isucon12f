@@ -1873,9 +1873,8 @@ func (h *Handler) generateID() (int64, error) {
     h.once.Do(h.initializeNode)
 
     // Snowflake ID を生成
-    id := h.node.Generate()
-
-    return int64(id), nil
+    id := h.node.Generate().Int64()
+    return id, nil
 }
 
 // generateUUID UUIDの生成
