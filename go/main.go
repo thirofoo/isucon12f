@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/snowflake"
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
@@ -1868,8 +1869,7 @@ func noContentResponse(c echo.Context, status int) error {
 // generateID ユニークなIDを生成する
 func (h *Handler) generateID() (int64, error) {
     // Snowflake ID を生成
-    id := h.node.Generate().Int64()
-    return id, nil
+    return h.node.Generate().Int64(), nil
 }
 
 // generateUUID UUIDの生成
