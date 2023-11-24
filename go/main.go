@@ -45,6 +45,8 @@ const (
 	DeckCardNumber      int = 3
 	PresentCountPerPage int = 100
 
+	DB_NUM 				int = 4
+
 	SQLDirectory string = "../sql/"
 )
 
