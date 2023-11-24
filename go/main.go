@@ -667,11 +667,6 @@ func initialize(c echo.Context) error {
 		return errorResponse(c, http.StatusInternalServerError, err)
 	}
 
-	query = "USE `isucon`; CREATE INDEX `idx_timestamp_present_all` ON `present_all_masters` (`registered_start_at`, `registered_end_at`);"
-	if _, err := dbx.Exec(query); err != nil {
-		return errorResponse(c, http.StatusInternalServerError, err)
-	}
-
 	return successResponse(c, &InitializeResponse{
 		Language: "go",
 	})
