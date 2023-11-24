@@ -14,7 +14,6 @@ import (
 	"os/exec"
 	"runtime"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/bwmarrin/snowflake"
@@ -52,11 +51,6 @@ const (
 type Handler struct {
 	DB *sqlx.DB
 	node *snowflake.Node
-	once sync.Once
-}
-
-func (h *Handler) initializeNode() {
-	h.node, _ = snowflake.NewNode(1)
 }
 
 func main() {
@@ -83,10 +77,14 @@ func main() {
 	}
 	defer dbx.Close()
 
+	snowflakeNode, err := snowflake.NewNode(1)
+	if err != nil {
+		panic(err)
+	}
 	e.Server.Addr = fmt.Sprintf(":%v", "8080")
 	h := &Handler{
 		DB: dbx,
-		node: nil, 
+		node: snowflakeNode, 
 	}
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{}))
@@ -1869,9 +1867,6 @@ func noContentResponse(c echo.Context, status int) error {
 
 // generateID ユニークなIDを生成する
 func (h *Handler) generateID() (int64, error) {
-    // Node の初期化 (複数回呼び出しても一度しか初期化されないようにする)
-    h.once.Do(h.initializeNode)
-
     // Snowflake ID を生成
     id := h.node.Generate().Int64()
     return id, nil
